@@ -19,7 +19,7 @@ create table if not exists pricing.price_adjustment
     value      numeric(19, 2) not null,
     mode       varchar(10)    not null,
     updated_at timestamptz    not null default now(),
-    constraint chk_price_adjustment_type check (type in ('PROM', 'TAX', 'FEE')),
+    constraint chk_price_adjustment_type check (type in ('PROMO', 'TAX', 'FEE')),
     constraint chk_price_adjustment_mode check (mode in ('ABSOLUTE', 'PERCENT'))
 );
 

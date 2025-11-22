@@ -17,3 +17,6 @@ spring:
     create-schemas: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+cache:
+  invalidate:
+    enabled: true

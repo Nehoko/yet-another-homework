@@ -7,6 +7,9 @@ import ge.imikhailov.omno.enums.AdjustmentMode;
 import ge.imikhailov.omno.repoisotory.PriceAdjustmentRepository;
 import ge.imikhailov.omno.repoisotory.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +26,7 @@ public class PriceService {
     private final PriceAdjustmentRepository priceAdjustmentRepository;
     private final AdjustmentMapper adjustmentMapper;
 
+    @Cacheable(cacheNames = "price", key = "#productId")
     @Transactional
     public PriceDto getPrice(Long productId) {
         final Optional<Product> oProduct = productRepository.findById(productId);
@@ -37,6 +41,7 @@ public class PriceService {
         return new PriceDto(product.getId(), product.getBasePrice(), calculateFinalPrice(product.getBasePrice(), adjustmentDtoList), adjustmentDtoList);
     }
 
+    @CacheEvict(cacheNames = "price", key = "#productId")
     @Transactional
     public void setAdjustments(Long productId, List<AdjustmentDto> adjustmentDtoList) {
         final Optional<Product> oProduct = productRepository.findById(productId);

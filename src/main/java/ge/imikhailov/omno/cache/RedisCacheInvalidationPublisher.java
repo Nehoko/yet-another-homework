@@ -15,7 +15,7 @@ public class RedisCacheInvalidationPublisher implements CacheInvalidationPublish
     @Override
     public void publishEvict(String cacheName, Object key) {
         if (cacheName == null || key == null) return;
-        String payload = "EVICT " + cacheName + " " + key.toString();
+        String payload = "EVICT " + cacheName + " " + key;
         try {
             redisTemplate.convertAndSend(topic.getTopic(), payload);
         } catch (Exception e) {

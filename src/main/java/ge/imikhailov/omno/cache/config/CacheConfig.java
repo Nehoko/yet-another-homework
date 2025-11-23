@@ -16,6 +16,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
@@ -23,11 +24,20 @@ import java.util.concurrent.TimeUnit;
 @Configuration
 public class CacheConfig {
 
+    @Value("${cache.l1.maximum-size:10000}")
+    private long l1MaximumSize;
+
+    @Value("${cache.l1.ttl:10m}")
+    private Duration l1Ttl;
+
+    @Value("${cache.l2.ttl:1h}")
+    private Duration l2Ttl;
+
     @Bean
     public Caffeine<Object, Object> caffeineConfig() {
         return Caffeine.newBuilder()
-                .maximumSize(10_000)
-                .expireAfterWrite(10, TimeUnit.MINUTES)
+                .maximumSize(l1MaximumSize)
+                .expireAfterWrite(l1Ttl.toMillis(), TimeUnit.MILLISECONDS)
                 .recordStats();
     }
 
@@ -43,7 +53,7 @@ public class CacheConfig {
 
         RedisCacheConfiguration config = RedisCacheConfiguration
                 .defaultCacheConfig()
-                .entryTtl(Duration.ofHours(1))
+                .entryTtl(l2Ttl)
                 .disableCachingNullValues()
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(RedisSerializer.json()));

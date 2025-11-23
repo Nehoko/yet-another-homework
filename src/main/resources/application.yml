@@ -18,6 +18,13 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 cache:
+  # L1 (in-memory Caffeine) cache settings
+  l1:
+    maximum-size: 10000    # max entries in local cache
+    ttl: 10m               # time-to-live for local cache entries
+  # L2 (Redis) cache settings
+  l2:
+    ttl: 1h                # time-to-live for redis cache entries
   invalidate:
     enabled: true
 

@@ -20,3 +20,30 @@ spring:
 cache:
   invalidate:
     enabled: true
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+    export:
+      enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env,configprops
+  endpoint:
+    health:
+      show-details: when_authorized
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: http://localhost:4318/v1/traces
+
+logging:
+  level:
+    root: INFO
+    ge.imikhailov.omno: DEBUG
+  pattern:
+    # Adds traceId/spanId to logs for correlation
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"

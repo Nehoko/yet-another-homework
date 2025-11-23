@@ -7,6 +7,8 @@ import ge.imikhailov.omno.enums.AdjustmentMode;
 import ge.imikhailov.omno.repoisotory.PriceAdjustmentRepository;
 import ge.imikhailov.omno.repoisotory.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import io.micrometer.observation.annotation.Observed;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -18,6 +20,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class PriceService {
 
@@ -27,21 +30,34 @@ public class PriceService {
 
     @Cacheable(cacheNames = "price", key = "#productId")
     @Transactional
+    @Observed(
+            name = "price.get",
+            contextualName = "get price",
+            lowCardinalityKeyValues = {"product.id", "#productId"}
+    )
     public PriceDto getPrice(Long productId) {
+        log.info("Getting price for product {}", productId);
         final Optional<Product> oProduct = productRepository.findById(productId);
         if (oProduct.isEmpty()) {
+            log.warn("Product not found for product id {}", productId);
             return null;
         }
         final var product = oProduct.get();
-
+        log.info("Found product {}", product.getName());
         final List<AdjustmentDto> adjustmentDtoList = priceAdjustmentRepository.findByProduct(product).stream()
                 .map(adjustmentMapper::toDto)
                 .toList();
+        log.info("Found {} adjustments", adjustmentDtoList.size());
         return new PriceDto(product.getId(), product.getBasePrice(), calculateFinalPrice(product.getBasePrice(), adjustmentDtoList), adjustmentDtoList);
     }
 
     @CacheEvict(cacheNames = "price", key = "#productId")
     @Transactional
+    @Observed(
+            name = "price.setAdjustments",
+            contextualName = "set adjustments",
+            lowCardinalityKeyValues = {"product.id", "#productId", "adjustments.count", "#adjustmentDtoList?.size()"}
+    )
     public void setAdjustments(Long productId, List<AdjustmentDto> adjustmentDtoList) {
         final Optional<Product> oProduct = productRepository.findById(productId);
         if (oProduct.isEmpty()) {

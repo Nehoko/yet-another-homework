@@ -9,6 +9,7 @@ import ge.imikhailov.omno.repoisotory.ProductRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +38,7 @@ public class SeedingService {
      *
      * @return number of rows present before truncation (sum of both tables)
      */
+    @CacheEvict(cacheNames = "price", allEntries = true)
     @Transactional
     public int clearDb() {
         int before = (int) (priceAdjustmentRepository.count() + productRepository.count());

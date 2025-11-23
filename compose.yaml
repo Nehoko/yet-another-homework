@@ -11,3 +11,12 @@ services:
     image: 'redis:latest'
     ports:
       - '6379:6379'
+  otel-collector:
+    image: otel/opentelemetry-collector:0.104.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP (used by Spring Boot config)
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    restart: unless-stopped

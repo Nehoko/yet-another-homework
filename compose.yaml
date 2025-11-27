@@ -11,6 +11,31 @@ services:
     image: 'redis:latest'
     ports:
       - '6379:6379'
+  app:
+    build: .
+    image: omno-app:swarm1
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/pricing
+      SPRING_DATASOURCE_USERNAME: myuser
+      SPRING_DATASOURCE_PASSWORD: secret
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      # Ensure OTLP endpoints point to the collector inside the swarm network
+      MANAGEMENT_OTLP_METRICS_EXPORT_URL: http://otel-collector:4318/v1/metrics
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
+      # Also set standard OpenTelemetry env var as a safety net
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - redis
+    deploy:
+      replicas: 2    # <—— scaling (works in docker swarm)
+      restart_policy:
+        condition: on-failure
+
   otel-collector:
     image: otel/opentelemetry-collector:0.104.0
     command: ["--config=/etc/otelcol/config.yaml"]

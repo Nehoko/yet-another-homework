@@ -1,11 +1,19 @@
 spring:
   application:
     name: omno
+  threads:
+    virtual:
+      enabled: true
   datasource:
-    url: jdbc:postgresql://postgres.omno.orb.local:5432/pricing
-    username: myuser
-    password: secret
+    url: ${SPRING_DATASOURCE_URL:"jdbc:postgresql://postgres.omno.orb.local:5432/pricing"}
+    username: ${SPRING_DATASOURCE_USERNAME:myuser}
+    password: ${SPRING_DATASOURCE_PASSWORD:secret}
     driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      # Host/port/password are picked from env in containers; these defaults make local compose/swarm work out of the box
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
   jpa:
     hibernate:
       ddl-auto: none
@@ -50,7 +58,7 @@ management:
 logging:
   level:
     root: INFO
-    ge.imikhailov.omno: DEBUG
+    ge.imikhailov.omno.*: DEBUG
   pattern:
     # Adds traceId/spanId to logs for correlation
     level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"

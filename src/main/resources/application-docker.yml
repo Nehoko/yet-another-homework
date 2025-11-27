@@ -1,0 +1,33 @@
+spring:
+  config:
+    activate:
+      on-profile: docker
+  datasource:
+    # Use service DNS names inside Docker networks
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/pricing}
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:redis}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+
+management:
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          # Reach collector by its service name inside the Docker network
+          endpoint: http://otel-collector:4318/v1/traces
+          
+  otlp:
+    metrics:
+      export:
+        # Micrometer OTLP metrics endpoint inside Docker network
+        url: http://otel-collector:4318/v1/metrics
+
+logging:
+  level:
+    root: INFO
+    ge.imikhailov.omno.*: DEBUG
+  pattern:
+    # Adds traceId/spanId to logs for correlation
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"

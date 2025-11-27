@@ -1,4 +1,4 @@
--- Create schema for pricing domain (database creation is typically managed outside app migrations)
+-- Create schema for the pricing domain (database creation is typically managed outside app migrations)
 create schema if not exists pricing;
 
 -- Product table
@@ -7,7 +7,7 @@ create table if not exists pricing.product
     id          bigserial primary key,
     sku         varchar(255)   not null unique,
     name        varchar(255)   not null,
-    "basePrice" numeric(19, 2) not null
+    base_price  numeric(19, 2) not null
 );
 
 -- Price adjustment table

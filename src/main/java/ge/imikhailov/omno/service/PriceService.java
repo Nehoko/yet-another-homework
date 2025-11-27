@@ -28,7 +28,7 @@ public class PriceService {
     private final PriceAdjustmentRepository priceAdjustmentRepository;
     private final AdjustmentMapper adjustmentMapper;
 
-    @Cacheable(cacheNames = "price", key = "#productId")
+    @Cacheable(cacheNames = "price", key = "#productId", sync = true)
     @Transactional
     @Observed(
             name = "price.get",

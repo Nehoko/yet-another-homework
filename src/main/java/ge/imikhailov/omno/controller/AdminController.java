@@ -33,7 +33,7 @@ public class AdminController {
     }
 
     @PostMapping("/seed")
-    public Map<String, Object> seed(@RequestParam(name = "count", defaultValue = "100000") int count,
+    public Map<String, Object> seed(@RequestParam(name = "count", defaultValue = "100000") long count,
                                     @RequestParam(name = "adjustRate", defaultValue = "0.1") double adjustRate,
                                     @RequestParam(name = "clear", defaultValue = "false") boolean clear) {
         SeedingService.SeedResult result = seedingService.seed(count, adjustRate, clear);

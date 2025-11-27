@@ -70,6 +70,9 @@ public class CacheConfig {
     public CacheManager multiLevelCacheManager(CaffeineCacheManager caffeineCacheManager,
                                                RedisCacheManager redisCacheManager,
                                                ObjectProvider<CacheInvalidationPublisher> publisherProvider) {
-        return new MultiLevelCacheManager(caffeineCacheManager, redisCacheManager, publisherProvider.getIfAvailable());
+        // Soft TTL for stale-while-revalidate: refresh slightly before L1 TTL expires.
+        // 80% of L1 TTL is a reasonable default to reduce spikes while keeping freshness.
+        Duration softTtl = l1Ttl.isZero() ? Duration.ZERO : Duration.ofMillis(Math.max(1L, (long) (l1Ttl.toMillis() * 0.8)));
+        return new MultiLevelCacheManager(caffeineCacheManager, redisCacheManager, publisherProvider.getIfAvailable(), softTtl);
     }
 }

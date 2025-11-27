@@ -18,6 +18,7 @@ import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -47,12 +48,13 @@ public class SeedingService {
     }
 
     @Transactional
-    public SeedResult seed(int count, double adjustRate, boolean clear) {
+    public SeedResult seed(long count, double adjustRate, boolean clear) {
         long start = System.currentTimeMillis();
         if (clear) {
             clearDb();
         }
-
+        final long size = productRepository.count();
+        count += size;
         int batchSize = 1000;
         int totalProducts = 0;
         int totalAdjustments = 0;
@@ -60,7 +62,7 @@ public class SeedingService {
         List<Product> productBatch = new ArrayList<>(batchSize);
         List<PriceAdjustment> adjustmentBatch = new ArrayList<>(batchSize);
 
-        for (int i = 1; i <= count; i++) {
+        for (long i = size + 1; i <= count; i++) {
             productBatch.add(buildRandomProduct(i));
 
             if (productBatch.size() == batchSize || i == count) {
@@ -99,9 +101,9 @@ public class SeedingService {
         return new SeedResult(totalProducts, totalAdjustments, took);
     }
 
-    private static Product buildRandomProduct(int seq) {
+    private static Product buildRandomProduct(long seq) {
         Product p = new Product();
-        p.setSku("SKU-" + seq);
+        p.setSku("SKU-" + UUID.randomUUID());
         p.setName("Product " + seq);
         p.setBasePrice(randomMoney(5.00, 100.00));
         return p;

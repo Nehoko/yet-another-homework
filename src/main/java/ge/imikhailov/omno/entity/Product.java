@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -22,7 +23,6 @@ public class Product {
     @Column(name = "name", nullable = false)
     private String name;
 
-    @Column(name = "\"basePrice\"", nullable = false, precision = 19, scale = 2)
+    @Column(name = "base_price", nullable = false, precision = 19, scale = 2)
     private BigDecimal basePrice;
-
 }

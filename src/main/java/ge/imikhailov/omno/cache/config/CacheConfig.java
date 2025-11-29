@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import ge.imikhailov.omno.cache.circuitbreaker.CircuitBreakerRedisCacheManager;
 import ge.imikhailov.omno.cache.multilevel.MultiLevelCacheManager;
 import ge.imikhailov.omno.cache.pubsub.CacheInvalidationPublisher;
+import ge.imikhailov.omno.metrics.CacheMetricsFactory;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import org.springframework.beans.factory.ObjectProvider;
@@ -51,7 +52,7 @@ public class CacheConfig {
 
     @Bean
     @ConditionalOnProperty(prefix = "cache.l1", name = "enabled", havingValue = "true", matchIfMissing = true)
-    public CaffeineCacheManager caffeineCacheManager(Caffeine<Object, Object> caffeine) {
+    public CaffeineCacheManager caffeineCacheManager(final Caffeine<Object, Object> caffeine) {
         final CaffeineCacheManager manager = new CaffeineCacheManager();
         manager.setCaffeine(caffeine);
         return manager;
@@ -59,7 +60,7 @@ public class CacheConfig {
 
     @Bean
     @ConditionalOnProperty(prefix = "cache.l2", name = "enabled", havingValue = "true", matchIfMissing = true)
-    public RedisCacheManager redisCacheManager(RedisConnectionFactory connectionFactory) {
+    public RedisCacheManager redisCacheManager(final RedisConnectionFactory connectionFactory) {
 
         final RedisCacheConfiguration config = RedisCacheConfiguration
                 .defaultCacheConfig()
@@ -84,16 +85,17 @@ public class CacheConfig {
 
     @Bean
     @ConditionalOnProperty(prefix = "cache.l2", name = "enabled", havingValue = "true", matchIfMissing = true)
-    public CircuitBreaker cacheL2CircuitBreaker(CircuitBreakerRegistry registry) {
+    public CircuitBreaker cacheL2CircuitBreaker(final CircuitBreakerRegistry registry) {
         // Retrieve or create a circuit breaker named "cacheL2" configured via application properties
         return registry.circuitBreaker("cacheL2");
     }
 
     @Bean
     @Primary
-    public CacheManager primaryCacheManager(ObjectProvider<CaffeineCacheManager> caffeineCacheManager,
-                                            ObjectProvider<CircuitBreakerRedisCacheManager> circuitBreakerRedisCacheManager,
-                                            ObjectProvider<CacheInvalidationPublisher> publisherProvider) {
+    public CacheManager primaryCacheManager(final ObjectProvider<CaffeineCacheManager> caffeineCacheManager,
+                                            final ObjectProvider<CircuitBreakerRedisCacheManager> circuitBreakerRedisCacheManager,
+                                            final ObjectProvider<CacheInvalidationPublisher> publisherProvider,
+                                            final CacheMetricsFactory cacheMetricsFactory) {
         if (!cacheEnabled) {
             return new NoOpCacheManager();
         }
@@ -104,7 +106,7 @@ public class CacheConfig {
         if (l1 != null && l2 != null) {
             // Soft TTL for stale-while-revalidate: refresh slightly before L1 TTL expires.
             final Duration softTtl = l1Ttl.isZero() ? Duration.ZERO : Duration.ofMillis(Math.max(1L, (long) (l1Ttl.toMillis() * 0.8)));
-            return new MultiLevelCacheManager(l1, l2, publisherProvider.getIfAvailable(), softTtl);
+            return new MultiLevelCacheManager(l1, l2, publisherProvider.getIfAvailable(), softTtl, cacheMetricsFactory);
         }
         if (l1 != null) return l1;
         if (l2 != null) return l2;

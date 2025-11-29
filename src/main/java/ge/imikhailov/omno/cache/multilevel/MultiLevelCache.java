@@ -1,7 +1,8 @@
 package ge.imikhailov.omno.cache.multilevel;
 
 import ge.imikhailov.omno.cache.pubsub.CacheInvalidationPublisher;
-import lombok.RequiredArgsConstructor;
+import ge.imikhailov.omno.metrics.CacheMetrics;
+import ge.imikhailov.omno.metrics.CacheMetricsFactory;
 import org.jspecify.annotations.Nullable;
 import org.springframework.cache.Cache;
 import org.springframework.cache.support.SimpleValueWrapper;
@@ -12,16 +13,26 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 
-@RequiredArgsConstructor
 public class MultiLevelCache implements Cache {
 
     private final String name;
     private final Cache l1;
     private final Cache l2;
-    private final @Nullable CacheInvalidationPublisher publisher;
     private final Duration softTtl;
+    private final @Nullable CacheInvalidationPublisher publisher;
+    private final CacheMetrics cacheMetrics;
     // Tracks in-flight loads per key to provide single-flight behavior and avoid duplicate DB hits
     private final ConcurrentHashMap<Object, CompletableFuture<Object>> inFlight = new ConcurrentHashMap<>();
+
+    public MultiLevelCache(String name, Cache l1, Cache l2, Duration softTtl, @Nullable CacheInvalidationPublisher publisher, CacheMetricsFactory cacheMetricsFactory) {
+        this.name = name;
+        this.l1 = l1;
+        this.l2 = l2;
+        this.softTtl = softTtl;
+        this.publisher = publisher;
+        this.cacheMetrics = cacheMetricsFactory.createCacheMetric(name, inFlight);
+    }
+
 
     private boolean isStale(@Nullable CachedEntry e) {
         if (e == null) return true;
@@ -59,11 +70,14 @@ public class MultiLevelCache implements Cache {
     public @Nullable ValueWrapper get(Object key) {
         final ValueWrapper v1 = l1.get(key);
         if (v1 != null) {
+            cacheMetrics.l1HitIncrement();
             final Object unwrapped = unwrap(v1.get());
             return new SimpleValueWrapper(unwrapped);
         }
+        cacheMetrics.l1MissIncrement();
         final ValueWrapper v2 = l2.get(key);
         if (v2 != null) {
+            cacheMetrics.l2HitIncrement();
             final Object value = v2.get();
             // backfill L1 if we found value in L2
             if (value != null) {
@@ -72,6 +86,7 @@ public class MultiLevelCache implements Cache {
             final Object unwrapped = unwrap(value);
             return new SimpleValueWrapper(unwrapped);
         }
+        cacheMetrics.l2MissIncrement();
         return null;
     }
 
@@ -79,14 +94,17 @@ public class MultiLevelCache implements Cache {
     public <T> @Nullable T get(Object key, @Nullable Class<T> type) {
         final ValueWrapper v1 = l1.get(key);
         if (v1 != null) {
+            cacheMetrics.l1HitIncrement();
             final T unwrapped = unwrap(v1.get());
             if (unwrapped == null || type == null || type.isInstance(unwrapped)) {
                 return unwrapped;
             }
             return null;
         }
+        cacheMetrics.l1MissIncrement();
         final ValueWrapper v2 = l2.get(key);
         if (v2 != null) {
+            cacheMetrics.l2HitIncrement();
             final Object raw = v2.get();
             if (raw != null) {
                 l1.put(key, raw);
@@ -96,6 +114,7 @@ public class MultiLevelCache implements Cache {
                 return unwrapped;
             }
         }
+        cacheMetrics.l2MissIncrement();
         return null;
     }
 
@@ -106,17 +125,26 @@ public class MultiLevelCache implements Cache {
             final ValueWrapper v1 = l1.get(key);
             final CachedEntry e1 = toEntry(v1 != null ? v1.get() : null);
             if (!isStale(e1)) {
+                if (e1 != null) cacheMetrics.l1HitIncrement();
+                else cacheMetrics.l1MissIncrement();
                 return unwrap(e1);
+            }
+            if (e1 != null) {
+                // Stale in L1 counts as miss in terms of freshness
+                cacheMetrics.l1MissIncrement();
             }
             // Try L2
             final ValueWrapper v2 = l2.get(key);
             if (v2 == null) {
+                cacheMetrics.l2MissIncrement();
                 return (T) triggerRefreshAsync(key, loader).get();
             }
             final CachedEntry e2 = toEntry(v2.get());
             if (e2 == null) {
+                cacheMetrics.l2MissIncrement();
                 return (T) triggerRefreshAsync(key, loader).get();
             }
+            cacheMetrics.l2HitIncrement();
             l1.put(key, e2);
             if (isStale(e2)) {
                 return unwrap(triggerRefreshAsync(key, loader));
@@ -139,18 +167,25 @@ public class MultiLevelCache implements Cache {
         final CompletableFuture<Object> newFuture = new CompletableFuture<>();
         final CompletableFuture<Object> existing = inFlight.putIfAbsent(key, newFuture);
         if (existing != null) {
+            cacheMetrics.duplicateSuppressedIncrement();
             return existing;
         }
         CompletableFuture.runAsync(() -> {
             try {
-                T value = loader.call();
-                if (value != null) {
-                    CachedEntry e = new CachedEntry(value, System.currentTimeMillis());
-                    l1.put(key, e);
-                    l2.put(key, e);
-                }
+                cacheMetrics.refreshStartedIncrement();
+                final T value = cacheMetrics.callInTimer(() -> {
+                    T v = loader.call();
+                    if (v != null) {
+                        CachedEntry e = new CachedEntry(v, System.currentTimeMillis());
+                        l1.put(key, e);
+                        l2.put(key, e);
+                    }
+                    return v;
+                });
+                cacheMetrics.refreshSuccessIncrement();
                 newFuture.complete(value);
             } catch (Exception ex) {
+                cacheMetrics.refreshFailureIncrement();
                 newFuture.completeExceptionally(ex);
             } finally {
                 inFlight.remove(key, newFuture);
@@ -175,6 +210,7 @@ public class MultiLevelCache implements Cache {
     public void evict(Object key) {
         l1.evict(key);
         l2.evict(key);
+        cacheMetrics.evictionIncrement();
         if (publisher != null) {
             publisher.publishEvict(name, key);
         }
@@ -184,6 +220,7 @@ public class MultiLevelCache implements Cache {
     public void clear() {
         l1.clear();
         l2.clear();
+        cacheMetrics.clearIncrement();
         if (publisher != null) {
             publisher.publishClear(name);
         }

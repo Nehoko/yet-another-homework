@@ -10,11 +10,11 @@ export default function () {
     const productId = 9999;
 
     // 1) Perform a write
-    const payload = JSON.stringify({
+    const payload = JSON.stringify([{
         type: "PROMO",
         value: Math.floor(Math.random() * 10) + 1,
         mode: "ABSOLUTE"
-    });
+    }]);
 
     const update = http.post(
         `http://localhost:8080/admin/price/${productId}/adjustments`,

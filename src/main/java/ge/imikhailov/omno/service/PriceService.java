@@ -2,10 +2,12 @@ package ge.imikhailov.omno.service;
 
 import ge.imikhailov.omno.dto.AdjustmentDto;
 import ge.imikhailov.omno.dto.PriceDto;
+import ge.imikhailov.omno.entity.PriceAdjustment;
 import ge.imikhailov.omno.entity.Product;
 import ge.imikhailov.omno.enums.AdjustmentMode;
 import ge.imikhailov.omno.repoisotory.PriceAdjustmentRepository;
 import ge.imikhailov.omno.repoisotory.ProductRepository;
+import ge.imikhailov.omno.web.error.ProductNotFoundException;
 import lombok.RequiredArgsConstructor;
 import io.micrometer.observation.annotation.Observed;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,7 +43,7 @@ public class PriceService {
         final Optional<Product> oProduct = productRepository.findById(productId);
         if (oProduct.isEmpty()) {
             log.warn("Product not found for product id {}", productId);
-            return null;
+            throw new ProductNotFoundException(productId);
         }
         final var product = oProduct.get();
         log.info("Found product {}", product.getName());
@@ -61,10 +64,12 @@ public class PriceService {
     public void setAdjustments(Long productId, List<AdjustmentDto> adjustmentDtoList) {
         final Optional<Product> oProduct = productRepository.findById(productId);
         if (oProduct.isEmpty()) {
-            throw new IllegalArgumentException("Product not found");
+            throw new ProductNotFoundException(productId);
         }
         final var product = oProduct.get();
-        priceAdjustmentRepository.saveAll(adjustmentMapper.toEntity(adjustmentDtoList, product));
+        final List<PriceAdjustment> adjustments = adjustmentMapper.toEntity(adjustmentDtoList, product);
+        adjustments.forEach(a -> a.setUpdatedAt(OffsetDateTime.now()));
+        priceAdjustmentRepository.saveAll(adjustments);
     }
 
     private BigDecimal calculateFinalPrice(BigDecimal basePrice, List<AdjustmentDto> adjustmentDtoList) {

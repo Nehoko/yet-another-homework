@@ -6,6 +6,7 @@ import ge.imikhailov.omno.service.SeedingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,7 +20,7 @@ public class AdminController {
     private final SeedingService seedingService;
 
     @PostMapping("/price/{productId}/adjustments")
-    public void adjustPrice(@PathVariable Long productId, @RequestBody List<AdjustmentDto> adjustmentDtoList) {
+    public void adjustPrice(@PathVariable Long productId, @RequestBody List<@Valid AdjustmentDto> adjustmentDtoList) {
         priceService.setAdjustments(productId, adjustmentDtoList);
     }
 

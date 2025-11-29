@@ -5,7 +5,7 @@ spring:
     virtual:
       enabled: true
   datasource:
-    url: ${SPRING_DATASOURCE_URL:"jdbc:postgresql://postgres.omno.orb.local:5432/pricing"}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres.omno.orb.local:5432/pricing}
     username: ${SPRING_DATASOURCE_USERNAME:myuser}
     password: ${SPRING_DATASOURCE_PASSWORD:secret}
     driver-class-name: org.postgresql.Driver

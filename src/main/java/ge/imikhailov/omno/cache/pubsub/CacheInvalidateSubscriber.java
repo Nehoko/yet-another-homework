@@ -1,4 +1,4 @@
-package ge.imikhailov.omno.cache;
+package ge.imikhailov.omno.cache.pubsub;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
@@ -13,6 +13,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 
 @Configuration
 @ConditionalOnProperty(prefix = "cache.invalidate", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = "cache.l2", name = "enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
 public class CacheInvalidateSubscriber {
 

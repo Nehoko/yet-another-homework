@@ -1,4 +1,4 @@
-package ge.imikhailov.omno.cache;
+package ge.imikhailov.omno.cache.pubsub;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

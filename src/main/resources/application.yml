@@ -17,6 +17,8 @@ spring:
       # Host/port/password are picked from env in containers; these defaults make local compose/swarm work out of the box
       host: ${SPRING_DATA_REDIS_HOST:localhost}
       port: ${SPRING_DATA_REDIS_PORT:6379}
+      # Bound Redis client latency so cache does not block request threads
+      timeout: 50ms
 
   jpa:
     hibernate:
@@ -32,12 +34,16 @@ spring:
     baseline-on-migrate: true
 
 cache:
+  # Global cache switch
+  enabled: true
   # L1 (in-memory Caffeine) cache settings
   l1:
+    enabled: true
     maximum-size: 10000    # max entries in local cache
     ttl: 10m               # time-to-live for local cache entries
   # L2 (Redis) cache settings
   l2:
+    enabled: true
     ttl: 1h                # time-to-live for redis cache entries
   invalidate:
     enabled: true
@@ -71,6 +77,20 @@ logging:
   pattern:
     # Adds traceId/spanId to logs for correlation
     level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+
+# Resilience4j CircuitBreaker configuration for Redis (L2) cache operations
+resilience4j:
+  circuitbreaker:
+    instances:
+      cacheL2:
+        registerHealthIndicator: true
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 50
+        failureRateThreshold: 50
+        slowCallRateThreshold: 50
+        slowCallDurationThreshold: 50ms
+        permittedNumberOfCallsInHalfOpenState: 5
+        waitDurationInOpenState: 30s
 
 # OpenTelemetry Java starter settings.
 # We explicitly disable log export because the collector config does not expose a logs pipeline

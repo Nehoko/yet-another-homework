@@ -1,4 +1,4 @@
-package ge.imikhailov.omno.cache;
+package ge.imikhailov.omno.cache.pubsub;
 
 /**
  * Publishes cache invalidation events to a shared medium (e.g., Redis Pub/Sub).

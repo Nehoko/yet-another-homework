@@ -9,6 +9,8 @@ spring:
     redis:
       host: ${SPRING_DATA_REDIS_HOST:redis}
       port: ${SPRING_DATA_REDIS_PORT:6379}
+      # Slightly higher timeout inside Docker networks
+      timeout: 100ms
 
 logging:
   level:

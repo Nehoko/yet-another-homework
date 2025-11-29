@@ -1,5 +1,6 @@
-package ge.imikhailov.omno.cache;
+package ge.imikhailov.omno.cache.multilevel;
 
+import ge.imikhailov.omno.cache.pubsub.CacheInvalidationPublisher;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.cache.Cache;

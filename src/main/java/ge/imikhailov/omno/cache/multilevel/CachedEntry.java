@@ -1,4 +1,4 @@
-package ge.imikhailov.omno.cache;
+package ge.imikhailov.omno.cache.multilevel;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

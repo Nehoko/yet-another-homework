@@ -10,20 +10,6 @@ spring:
       host: ${SPRING_DATA_REDIS_HOST:redis}
       port: ${SPRING_DATA_REDIS_PORT:6379}
 
-management:
-  opentelemetry:
-    tracing:
-      export:
-        otlp:
-          # Reach collector by its service name inside the Docker network
-          endpoint: http://otel-collector:4318/v1/traces
-          
-  otlp:
-    metrics:
-      export:
-        # Micrometer OTLP metrics endpoint inside Docker network
-        url: http://otel-collector:4318/v1/metrics
-
 logging:
   level:
     root: INFO
@@ -31,3 +17,28 @@ logging:
   pattern:
     # Adds traceId/spanId to logs for correlation
     level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+
+# OpenTelemetry Java starter settings for Docker.
+# Disable log export because the collector is not configured for OTLP logs.
+otel:
+  service:
+    name: ${spring.application.name}
+  exporter:
+    otlp:
+      endpoint: http://otel-collector:4318
+      protocol: http/protobuf
+  logs:
+    exporter: none
+  metrics:
+    exporter: otlp
+  traces:
+    exporter: otlp
+
+management:
+  otlp:
+    metrics:
+      export:
+        # Micrometer OTLP metrics endpoint inside Docker network
+        url: http://otel-collector:4318/v1/metrics
+    tracing:
+      endpoint: http://otel-collector:4318/v1/traces

@@ -1,30 +1,36 @@
 spring:
   application:
     name: omno
+
   threads:
     virtual:
       enabled: true
+
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres.omno.orb.local:5432/pricing}
     username: ${SPRING_DATASOURCE_USERNAME:myuser}
     password: ${SPRING_DATASOURCE_PASSWORD:secret}
     driver-class-name: org.postgresql.Driver
+
   data:
     redis:
       # Host/port/password are picked from env in containers; these defaults make local compose/swarm work out of the box
       host: ${SPRING_DATA_REDIS_HOST:localhost}
       port: ${SPRING_DATA_REDIS_PORT:6379}
+
   jpa:
     hibernate:
       ddl-auto: none
     database: postgresql
     open-in-view: true
+
   flyway:
     enabled: true
     default-schema: pricing
     create-schemas: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+
 cache:
   # L1 (in-memory Caffeine) cache settings
   l1:
@@ -37,11 +43,6 @@ cache:
     enabled: true
 
 management:
-  tracing:
-    sampling:
-      probability: 1.0
-    export:
-      enabled: true
   endpoints:
     web:
       exposure:
@@ -49,11 +50,19 @@ management:
   endpoint:
     health:
       show-details: when_authorized
-  opentelemetry:
-    tracing:
+
+  tracing:
+    sampling:
+      probability: 1.0
+    export:
+      enabled: true
+
+  otlp:
+    metrics:
       export:
-        otlp:
-          endpoint: http://localhost:4318/v1/traces
+        url: http://otel-collector.omno.orb.local:4318/v1/metrics
+    tracing:
+      endpoint: http://otel-collector.omno.orb.local:4318/v1/traces
 
 logging:
   level:
@@ -62,3 +71,20 @@ logging:
   pattern:
     # Adds traceId/spanId to logs for correlation
     level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+
+# OpenTelemetry Java starter settings.
+# We explicitly disable log export because the collector config does not expose a logs pipeline
+# and the default OTLP log exporter was spamming 404 errors.
+otel:
+  service:
+    name: ${spring.application.name}
+  exporter:
+    otlp:
+      endpoint: http://otel-collector.omno.orb.local:4318
+      protocol: http/protobuf
+  logs:
+    exporter: none
+  metrics:
+    exporter: otlp
+  traces:
+    exporter: otlp

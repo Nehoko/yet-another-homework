@@ -28,14 +28,26 @@ High-throughput pricing API with multi-level caching (Caffeine + Redis), stale-w
 
 ## How to run
 - Local JVM: `./mvnw spring-boot:run` (requires Postgres + Redis reachable via `SPRING_DATASOURCE_URL` / `SPRING_DATA_REDIS_HOST`).
-- Docker compose/swarm: `docker compose up --build` (uses `compose.yaml`, includes Postgres, Redis, two app replicas, otel-collector).
-- Tests: `./mvnw test` (uses Testcontainers; no local DB/Redis needed).
+- Docker compose (single-host): `docker compose up --build`.
+- Docker Swarm (stack name `omno`, tested with 2 app replicas):
+  - `docker stack deploy -c compose.yaml omno`
+  - Services: Postgres (5432), Redis (6379), app (8080), otel-collector (4317/4318/8889), Prometheus (9090), Grafana (3000).
+  - To refresh Grafana provisioning: `docker service update --force omno_grafana`. To reset dashboards completely, remove the Grafana volume (`docker volume rm omno_grafana_data`) before redeploy.
+- Tests: `./mvnw test` (uses Testcontainers; needs Docker). For unit-only in restricted env: `./mvnw -DskipITs test` (or run specific `-Dtest=...`).
+
+## Observability (Prometheus + Grafana)
+- Metrics: Prometheus scrapes the app at `/actuator/prometheus` and the otel-collector at `:8889`. Grafana is pre-provisioned:
+  - Login: `http://localhost:3000` (admin/admin)
+  - Datasource: Prometheus (`http://prometheus:9090`)
+  - Dashboard: "Omno Observability" (provisioned from `grafana/dashboards/omno-observability.json`)
+  - Panels include HTTP RPS/error%, p95/p99 latency, DB query p95, cache hit ratios, cache loader latency, refresh outcomes, inflight loads, evictions/clears.
+- Traces: still exported OTLP to the collector (`otel-collector:4318`). No logs pipeline.
 
 ## Config surface (env-friendly)
 - DB pool: `DB_POOL_MAX_SIZE`, `DB_POOL_MIN_IDLE`, `DB_POOL_CONNECTION_TIMEOUT_MS`, `DB_POOL_VALIDATION_TIMEOUT_MS`, `DB_POOL_MAX_LIFETIME_MS`.
 - Redis: `SPRING_DATA_REDIS_HOST/PORT/DATABASE/TIMEOUT/CLIENT_NAME`, `CACHE_L2_PREFIX` (namespacing).
 - Cache toggles & tuning: `CACHE_ENABLED`, `CACHE_L1_ENABLED`, `CACHE_L2_ENABLED`, `CACHE_L1_MAX_SIZE`, `CACHE_L1_TTL`, `CACHE_L2_TTL`, `CACHE_REFRESH_SOFT_TTL_RATIO`, `CACHE_INVALIDATE_ENABLED`.
-- Observability: OTLP endpoints in `application.yml` (collector defaults in compose), actuator metrics exposed at `/actuator/metrics`.
+- Observability: Prometheus scrape at `/actuator/prometheus`; OTLP tracing endpoint in `application*.yml` (collector defaults in compose).
 
 ## HTTP scripts
 - See `http/api.http` for ready-to-run requests (REST Client / IntelliJ / HTTPie friendly): health, seeded reads, admin adjustments, DB-only path, 404 case.
@@ -50,7 +62,7 @@ High-throughput pricing API with multi-level caching (Caffeine + Redis), stale-w
 - No jitter/backoff on expirations; synchronized TTLs could spike traffic on rolling restarts.
 - Redis circuit breaker prevents overload, but we still rely on Redis availability for L2 benefits; noisy neighbors may increase tail latencies.
 - Cache refresh window is ratio-based; tune `CACHE_REFRESH_SOFT_TTL_RATIO` alongside `CACHE_L1_TTL` to avoid excessive refresh churn.
-- No Grafana dashboards committed (step #8 optional); OTLP/Prometheus endpoints are exposed for downstream dashboards.
+- Integration tests require Docker (Testcontainers). Run unit-only when Docker is unavailable.
 
 ## Endpoints (summary)
 - `GET /price/{id}` — cached path (multi-level).
@@ -59,3 +71,8 @@ High-throughput pricing API with multi-level caching (Caffeine + Redis), stale-w
 - `POST /admin/seed` — seed demo data (`count`, `adjustRate`, `clear` flags)
 - `POST /admin/clear` — truncate tables.
 - `GET /health` — liveness.
+
+## Test coverage
+- Unit tests cover cache layers, pub/sub invalidation, circuit breaker wrapper, controllers (MockMvc), exception handler, mapper, seeding logic, and entities.
+- Integration tests (Docker-required) cover cached path correctness, cache invalidation, and admin seed/clear.
+- To generate a coverage report, run your IDE’s coverage runner or add JaCoCo (not included by default). For a quick view, run `./mvnw test` and inspect your IDE metrics; branch coverage improves with the cache/pubsub/controller tests.

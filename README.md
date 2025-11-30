@@ -58,6 +58,10 @@ High-throughput pricing API with multi-level caching (Caffeine + Redis), stale-w
 - Freshness SLA (`bench/freshness-sla.js`, 30s, 20 VUs): avg 15ms, p95 28ms, max 104ms, timeoutRate 0 — well within SLA (avg ≤1s, max ≤3s).
 - How to rerun: `BASE_URL=http://localhost:8080 k6 run bench/baseline-db.js`, `BASE_URL=http://localhost:8080 HOT_ID=12345 k6 run bench/cache-test.js`, `BASE_URL=http://localhost:8080 k6 run bench/freshness-sla.js`. For multi-replica checks, set `BASE_URLS=http://host1:8080,http://host2:8080`.
 
+## Grafana screenshot
+
+![Omno Observability dashboard](grafana_result.jpg)
+
 ## Limitations / trade-offs
 - No jitter/backoff on expirations; synchronized TTLs could spike traffic on rolling restarts.
 - Redis circuit breaker prevents overload, but we still rely on Redis availability for L2 benefits; noisy neighbors may increase tail latencies.

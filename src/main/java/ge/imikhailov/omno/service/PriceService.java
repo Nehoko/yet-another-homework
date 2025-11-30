@@ -41,8 +41,53 @@ public class PriceService {
             contextualName = "get price",
             lowCardinalityKeyValues = {"product.id", "#productId"}
     )
-    public PriceDto getPrice(Long productId) {
+    public PriceDto getPrice(final Long productId) {
         log.info("Getting price for product {}", productId);
+        return this.getData(productId);
+    }
+
+    /**
+     * DB-only variant: executes the same logic as {@link #getPrice(Long)} but without any cache involvement.
+     */
+    @Transactional
+    @Observed(
+            name = "price.get.noCache",
+            contextualName = "get price (db-only)",
+            lowCardinalityKeyValues = {"product.id", "#productId"}
+    )
+    public PriceDto getPriceNoCache(final Long productId) {
+        log.info("Getting DB-only price for product {}", productId);
+        return this.getData(productId);
+    }
+
+    @CacheEvict(cacheNames = "price", key = "#productId")
+    @Transactional
+    @Observed(
+            name = "price.setAdjustments",
+            contextualName = "set adjustments",
+            lowCardinalityKeyValues = {"product.id", "#productId", "adjustments.count", "#adjustmentDtoList?.size()"}
+    )
+    public void setAdjustments(Long productId, List<AdjustmentDto> adjustmentDtoList) {
+        final Timer.Sample sampleFindById = Timer.start(meterRegistry);
+        final Optional<Product> oProduct = productRepository.findById(productId);
+        sampleFindById.stop(
+                Timer.builder("omno.db.query")
+                        .tag("entity", "Product")
+                        .tag("op", "findById")
+                        .publishPercentileHistogram()
+                        .publishPercentiles(0.5, 0.9, 0.95, 0.99)
+                        .register(meterRegistry)
+        );
+        if (oProduct.isEmpty()) {
+            throw new ProductNotFoundException(productId);
+        }
+        final var product = oProduct.get();
+        final List<PriceAdjustment> adjustments = adjustmentMapper.toEntity(adjustmentDtoList, product);
+        adjustments.forEach(a -> a.setUpdatedAt(OffsetDateTime.now()));
+        priceAdjustmentRepository.saveAll(adjustments);
+    }
+
+    private PriceDto getData(final Long productId) {
         final Timer.Sample sampleFindById = Timer.start(meterRegistry);
         final Optional<Product> oProduct = productRepository.findById(productId);
         sampleFindById.stop(
@@ -73,33 +118,6 @@ public class PriceService {
         );
         log.info("Found {} adjustments", adjustmentDtoList.size());
         return new PriceDto(product.getId(), product.getBasePrice(), calculateFinalPrice(product.getBasePrice(), adjustmentDtoList), adjustmentDtoList);
-    }
-
-    @CacheEvict(cacheNames = "price", key = "#productId")
-    @Transactional
-    @Observed(
-            name = "price.setAdjustments",
-            contextualName = "set adjustments",
-            lowCardinalityKeyValues = {"product.id", "#productId", "adjustments.count", "#adjustmentDtoList?.size()"}
-    )
-    public void setAdjustments(Long productId, List<AdjustmentDto> adjustmentDtoList) {
-        final Timer.Sample sampleFindById = Timer.start(meterRegistry);
-        final Optional<Product> oProduct = productRepository.findById(productId);
-        sampleFindById.stop(
-                Timer.builder("omno.db.query")
-                        .tag("entity", "Product")
-                        .tag("op", "findById")
-                        .publishPercentileHistogram()
-                        .publishPercentiles(0.5, 0.9, 0.95, 0.99)
-                        .register(meterRegistry)
-        );
-        if (oProduct.isEmpty()) {
-            throw new ProductNotFoundException(productId);
-        }
-        final var product = oProduct.get();
-        final List<PriceAdjustment> adjustments = adjustmentMapper.toEntity(adjustmentDtoList, product);
-        adjustments.forEach(a -> a.setUpdatedAt(OffsetDateTime.now()));
-        priceAdjustmentRepository.saveAll(adjustments);
     }
 
     private BigDecimal calculateFinalPrice(BigDecimal basePrice, List<AdjustmentDto> adjustmentDtoList) {

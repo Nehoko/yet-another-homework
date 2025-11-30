@@ -52,11 +52,11 @@ High-throughput pricing API with multi-level caching (Caffeine + Redis), stale-w
 ## HTTP scripts
 - See `http/api.http` for ready-to-run requests (REST Client / IntelliJ / HTTPie friendly): health, seeded reads, admin adjustments, DB-only path, 404 case.
 
-## Benchmarks (from step #5)
-- DB-only baseline (30s, 50 VUs): ~3.6k rps; avg 12.37ms, p95 27.72ms, max 182.54ms.
-- Cached baseline (45s, 100 VUs): ~19.1k rps; avg 5.14ms, p95 12.06ms, p99 22.96ms, max 234.84ms (narrowly missed p95<10ms target).
-- Freshness SLA (write→read delay across replicas): avg ~27–35ms, p95 ~55–63ms, max ~129–180ms; timeoutRate 0.
-- How to rerun: use `bench/baseline-db.js` for DB-only; `bench/cache-test.js` for cached path; set `BASE_URL` (and `HOT_ID` for cached).
+## Benchmarks (latest local runs)
+- DB-only baseline (`bench/baseline-db.js`, 30s, 50 VUs, BASE_URL=localhost): 122,968 requests; avg 11.0ms, p90 16.0ms, p95 20.9ms, max 1,048.6ms. High-cardinality warning from k6 due to random IDs (OK to ignore for one-off runs).
+- Cached baseline (`bench/cache-test.js`, 45s, 100 VUs, HOT_ID=12345): 475,963 requests; avg 9.44ms, p95 9.49ms (meets target), p99 205ms (misses 20ms target due to rare long-tail spikes), max 8.18s; 0 errors. Interpretation: functional correctness OK, but occasional outliers push p99 above the goal.
+- Freshness SLA (`bench/freshness-sla.js`, 30s, 20 VUs): avg 15ms, p95 28ms, max 104ms, timeoutRate 0 — well within SLA (avg ≤1s, max ≤3s).
+- How to rerun: `BASE_URL=http://localhost:8080 k6 run bench/baseline-db.js`, `BASE_URL=http://localhost:8080 HOT_ID=12345 k6 run bench/cache-test.js`, `BASE_URL=http://localhost:8080 k6 run bench/freshness-sla.js`. For multi-replica checks, set `BASE_URLS=http://host1:8080,http://host2:8080`.
 
 ## Limitations / trade-offs
 - No jitter/backoff on expirations; synchronized TTLs could spike traffic on rolling restarts.

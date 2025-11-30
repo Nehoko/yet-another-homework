@@ -27,6 +27,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import java.math.BigDecimal;
+import java.util.Map;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -70,9 +71,16 @@ class PriceIntegrationTest {
         productId = p.getId();
     }
 
-    @AfterAll
-    static void tearDown() {
-        redis.close();
+    @Test
+    void adminEndpoints_seedAndClearWork() {
+        // seed with a small count
+        ResponseEntity<Map> seed = rest.postForEntity("/admin/seed?count=3&adjustRate=0.5&clear=true", null, Map.class);
+        assertThat(seed.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(((Number) seed.getBody().get("products")).intValue()).isEqualTo(3);
+
+        ResponseEntity<Map> clear = rest.postForEntity("/admin/clear", null, Map.class);
+        assertThat(clear.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(((Number) clear.getBody().get("truncated")).intValue()).isGreaterThanOrEqualTo(0);
     }
 
     @Test

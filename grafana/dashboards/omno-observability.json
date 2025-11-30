@@ -45,26 +45,170 @@
     },
     {
       "type": "timeseries",
-      "title": "Scrape duration seconds (avg by job)",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "title": "HTTP requests per second",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 8 },
       "targets": [
         {
           "refId": "A",
-          "expr": "avg(scrape_duration_seconds) by (job)",
-          "legendFormat": "{{job}}"
+          "expr": "sum by (method) (rate(http_server_requests_milliseconds_count[1m])) or sum by (method) (rate(http_server_requests_seconds_count[1m]))",
+          "legendFormat": "{{method}}"
         }
       ]
     },
     {
       "type": "timeseries",
-      "title": "HTTP server requests (example)",
-      "description": "If present from Spring Boot via OTEL -> Collector -> Prometheus.",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "title": "HTTP error rate (5xx %)",
+      "description": "Share of 5xx responses over all requests.",
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 8 },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (service_name) (otel_scope_info) >= 0",
-          "legendFormat": "scope"
+          "expr": "100 * sum(rate(http_server_requests_milliseconds_count{status=~\"5..\"}[5m])) / sum(rate(http_server_requests_milliseconds_count[5m]))\n      or 100 * sum(rate(http_server_requests_seconds_count{status=~\"5..\"}[5m])) / sum(rate(http_server_requests_seconds_count[5m]))",
+          "legendFormat": "5xx share"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP latency (p95/p99)",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_milliseconds_bucket[5m])))\n           or histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket[5m])))\n           or max(http_server_requests_milliseconds{quantile=\"0.95\"})\n           or max(http_server_requests_seconds{quantile=\"0.95\"})",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_milliseconds_bucket[5m])))\n           or histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket[5m])))\n           or max(http_server_requests_milliseconds{quantile=\"0.99\"})\n           or max(http_server_requests_seconds{quantile=\"0.99\"})",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "DB query latency (p95) by query",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, entity, op) (rate(omno_db_query_milliseconds_bucket[5m])))",
+          "legendFormat": "{{entity}} {{op}} p95"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Cache hit ratio",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(omno_cache_gets_total{level=\"L1\",outcome=\"hit\"}[1m])) or sum(rate(omno_cache_gets{level=\"L1\",outcome=\"hit\"}[1m]))",
+          "legendFormat": "L1 hits"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(omno_cache_gets_total{level=\"L1\"}[1m])) or sum(rate(omno_cache_gets{level=\"L1\"}[1m]))",
+          "legendFormat": "L1 total"
+        },
+        {
+          "refId": "C",
+          "expr": "sum(rate(omno_cache_gets_total{level=\"L2\",outcome=\"hit\"}[1m])) or sum(rate(omno_cache_gets{level=\"L2\",outcome=\"hit\"}[1m]))",
+          "legendFormat": "L2 hits"
+        },
+        {
+          "refId": "D",
+          "expr": "sum(rate(omno_cache_gets_total{level=\"L2\"}[1m])) or sum(rate(omno_cache_gets{level=\"L2\"}[1m]))",
+          "legendFormat": "L2 total"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "calculateField",
+          "options": {
+            "alias": "L1 hit % (all caches)",
+            "binary": {
+              "left": "L1 hits",
+              "operator": "/",
+              "reducer": "sum",
+              "right": "L1 total"
+            },
+            "mode": "binary",
+            "reduce": { "reducer": "sum" }
+          }
+        },
+        {
+          "id": "calculateField",
+          "options": {
+            "alias": "L2 hit % (all caches)",
+            "binary": {
+              "left": "L2 hits",
+              "operator": "/",
+              "reducer": "sum",
+              "right": "L2 total"
+            },
+            "mode": "binary",
+            "reduce": { "reducer": "sum" }
+          }
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Cache loader latency (p95/p99)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, cache) (rate(omno_cache_loader_milliseconds_bucket[5m])))",
+          "legendFormat": "{{cache}} p95"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.99, sum by (le, cache) (rate(omno_cache_loader_milliseconds_bucket[5m])))",
+          "legendFormat": "{{cache}} p99"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Cache refresh outcomes / suppressions",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (phase, cache) (rate(omno_cache_refresh_total[1m]) or rate(omno_cache_refresh[1m]))",
+          "legendFormat": "{{cache}} {{phase}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "In-flight cache loads (single-flight)",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 24 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "omno_cache_inflight or on() vector(0)",
+          "legendFormat": "{{cache}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Evictions & clears per minute",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 24 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (cache) (rate(omno_cache_evictions_total[5m]) or rate(omno_cache_evictions[5m]))",
+          "legendFormat": "{{cache}} evictions"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (cache) (rate(omno_cache_clears_total[5m]) or rate(omno_cache_clears[5m]))",
+          "legendFormat": "{{cache}} clears"
         }
       ]
     }
@@ -77,6 +221,7 @@
   "time": { "from": "now-15m", "to": "now" },
   "timezone": "",
   "title": "Omno Observability",
-  "version": 1,
+  "uid": "omno-observability",
+  "version": 2,
   "weekStart": ""
 }

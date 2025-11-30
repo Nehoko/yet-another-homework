@@ -12,6 +12,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class MultiLevelCache implements Cache {
 
@@ -23,6 +24,8 @@ public class MultiLevelCache implements Cache {
     private final CacheMetrics cacheMetrics;
     // Tracks in-flight loads per key to provide single-flight behavior and avoid duplicate DB hits
     private final ConcurrentHashMap<Object, CompletableFuture<Object>> inFlight = new ConcurrentHashMap<>();
+    // Tracks how many loads are currently executing; exposed as a gauge (avoids NaN export issues)
+    private final AtomicInteger inFlightGauge = new AtomicInteger();
 
     public MultiLevelCache(String name, Cache l1, Cache l2, Duration softTtl, @Nullable CacheInvalidationPublisher publisher, CacheMetricsFactory cacheMetricsFactory) {
         this.name = name;
@@ -30,7 +33,7 @@ public class MultiLevelCache implements Cache {
         this.l2 = l2;
         this.softTtl = softTtl;
         this.publisher = publisher;
-        this.cacheMetrics = cacheMetricsFactory.createCacheMetric(name, inFlight);
+        this.cacheMetrics = cacheMetricsFactory.createCacheMetric(name, inFlightGauge);
     }
 
 
@@ -170,6 +173,8 @@ public class MultiLevelCache implements Cache {
             cacheMetrics.duplicateSuppressedIncrement();
             return existing;
         }
+        inFlightGauge.incrementAndGet();
+
         CompletableFuture.runAsync(() -> {
             try {
                 cacheMetrics.refreshStartedIncrement();
@@ -189,6 +194,7 @@ public class MultiLevelCache implements Cache {
                 newFuture.completeExceptionally(ex);
             } finally {
                 inFlight.remove(key, newFuture);
+                inFlightGauge.decrementAndGet();
             }
         });
         return newFuture;

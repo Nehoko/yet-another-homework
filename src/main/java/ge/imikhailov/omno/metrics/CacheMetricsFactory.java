@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @RequiredArgsConstructor
@@ -17,7 +18,7 @@ public class CacheMetricsFactory {
     private final MeterRegistry meterRegistry;
 
     public CacheMetrics createCacheMetric(final String cacheName,
-                                          final ConcurrentHashMap<Object, CompletableFuture<Object>> inFlight) {
+                                          final AtomicInteger inFlightGauge) {
         final CacheMetrics cacheMetrics = new CacheMetrics(
                 counter(cacheName, "omno.cache.gets", "level", "L1", "outcome", "hit"),
                 counter(cacheName, "omno.cache.gets", "level", "L1", "outcome", "miss"),
@@ -31,8 +32,9 @@ public class CacheMetricsFactory {
                 counter(cacheName, "omno.cache.clears"),
                 timer(cacheName));
 
-        Gauge.builder("omno.cache.inflight", inFlight, ConcurrentHashMap::size)
+        Gauge.builder("omno.cache.inflight", inFlightGauge, AtomicInteger::get)
                 .tag("cache", cacheName)
+                .strongReference(true)
                 .register(this.meterRegistry);
         return cacheMetrics;
     }

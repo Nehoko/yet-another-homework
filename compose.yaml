@@ -14,6 +14,10 @@ services:
   app:
     build: .
     image: omno-app:swarm1
+    networks:
+      default:
+        aliases:
+          - app-svc
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/pricing
@@ -21,8 +25,6 @@ services:
       SPRING_DATASOURCE_PASSWORD: secret
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
-      # Ensure OTLP endpoints point to the collector inside the swarm network
-      MANAGEMENT_OTLP_METRICS_EXPORT_URL: http://otel-collector:4318/v1/metrics
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
       # Also set standard OpenTelemetry env var as a safety net
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
@@ -77,6 +79,10 @@ services:
     depends_on:
       - prometheus
     restart: unless-stopped
+
+networks:
+  default:
+    driver: overlay
 
 volumes:
   prom_data:

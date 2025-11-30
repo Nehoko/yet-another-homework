@@ -11,6 +11,7 @@ export const options = {
 
 export default function () {
     // use a hot productId to hit cache
-    const productId = 12345;
-    http.get(`http://localhost:8080/price/${productId}`);
+    const productId = Number(__ENV.HOT_ID) || 12345;
+    const baseUrl = __ENV.BASE_URL || 'http://localhost:8080';
+    http.get(`${baseUrl}/price/${productId}`);
 }

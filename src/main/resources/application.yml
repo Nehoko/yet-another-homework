@@ -11,14 +11,22 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:myuser}
     password: ${SPRING_DATASOURCE_PASSWORD:secret}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:20}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT_MS:20000}
+      validation-timeout: ${DB_POOL_VALIDATION_TIMEOUT_MS:5000}
+      max-lifetime: ${DB_POOL_MAX_LIFETIME_MS:1800000}
 
   data:
     redis:
       # Host/port/password are picked from env in containers; these defaults make local compose/swarm work out of the box
       host: ${SPRING_DATA_REDIS_HOST:localhost}
       port: ${SPRING_DATA_REDIS_PORT:6379}
+      database: ${SPRING_DATA_REDIS_DATABASE:0}
+      client-name: ${SPRING_DATA_REDIS_CLIENT_NAME:${spring.application.name}}
       # Bound Redis client latency so cache does not block request threads
-      timeout: 50ms
+      timeout: ${SPRING_DATA_REDIS_TIMEOUT:50ms}
 
   jpa:
     hibernate:
@@ -35,18 +43,21 @@ spring:
 
 cache:
   # Global cache switch
-  enabled: true
+  enabled: ${CACHE_ENABLED:true}
   # L1 (in-memory Caffeine) cache settings
   l1:
-    enabled: true
-    maximum-size: 10000    # max entries in local cache
-    ttl: 10m               # time-to-live for local cache entries
+    enabled: ${CACHE_L1_ENABLED:true}
+    maximum-size: ${CACHE_L1_MAX_SIZE:10000}    # max entries in local cache
+    ttl: ${CACHE_L1_TTL:10m}                    # time-to-live for local cache entries
   # L2 (Redis) cache settings
   l2:
-    enabled: true
-    ttl: 1h                # time-to-live for redis cache entries
+    enabled: ${CACHE_L2_ENABLED:true}
+    ttl: ${CACHE_L2_TTL:1h}                     # time-to-live for redis cache entries
+    prefix: ${CACHE_L2_PREFIX:}
+  refresh:
+    soft-ttl-ratio: ${CACHE_REFRESH_SOFT_TTL_RATIO:0.8} # refresh when entry is this fraction of TTL old
   invalidate:
-    enabled: true
+    enabled: ${CACHE_INVALIDATE_ENABLED:true}
 
 management:
   endpoints:

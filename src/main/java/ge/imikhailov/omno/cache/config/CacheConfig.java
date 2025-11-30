@@ -41,6 +41,12 @@ public class CacheConfig {
     @Value("${cache.l2.ttl:1h}")
     private Duration l2Ttl;
 
+    @Value("${cache.refresh.soft-ttl-ratio:0.8}")
+    private double softTtlRatio;
+
+    @Value("${cache.l2.prefix:}")
+    private String l2Prefix;
+
     @Bean
     @ConditionalOnProperty(prefix = "cache.l1", name = "enabled", havingValue = "true", matchIfMissing = true)
     public Caffeine<Object, Object> caffeineConfig() {
@@ -62,12 +68,16 @@ public class CacheConfig {
     @ConditionalOnProperty(prefix = "cache.l2", name = "enabled", havingValue = "true", matchIfMissing = true)
     public RedisCacheManager redisCacheManager(final RedisConnectionFactory connectionFactory) {
 
-        final RedisCacheConfiguration config = RedisCacheConfiguration
+        RedisCacheConfiguration config = RedisCacheConfiguration
                 .defaultCacheConfig()
                 .entryTtl(l2Ttl)
                 .disableCachingNullValues()
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(RedisSerializer.json()));
+
+        if (l2Prefix != null && !l2Prefix.isBlank()) {
+            config = config.prefixCacheNameWith(l2Prefix);
+        }
 
         return RedisCacheManager
                 .builder(connectionFactory)
@@ -105,7 +115,8 @@ public class CacheConfig {
 
         if (l1 != null && l2 != null) {
             // Soft TTL for stale-while-revalidate: refresh slightly before L1 TTL expires.
-            final Duration softTtl = l1Ttl.isZero() ? Duration.ZERO : Duration.ofMillis(Math.max(1L, (long) (l1Ttl.toMillis() * 0.8)));
+            final double ratio = Math.max(0.0d, Math.min(softTtlRatio, 1.0d));
+            final Duration softTtl = l1Ttl.isZero() ? Duration.ZERO : Duration.ofMillis(Math.max(1L, (long) (l1Ttl.toMillis() * ratio)));
             return new MultiLevelCacheManager(l1, l2, publisherProvider.getIfAvailable(), softTtl, cacheMetricsFactory);
         }
         if (l1 != null) return l1;

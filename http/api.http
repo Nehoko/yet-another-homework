@@ -1,0 +1,28 @@
+@baseUrl = http://localhost:8080
+
+### Health check
+GET {{baseUrl}}/health
+
+### Get price (cached path)
+GET {{baseUrl}}/price/1
+
+### Get price directly from DB (no cache)
+GET {{baseUrl}}/price-db/1
+
+### Missing product (expects 404 ProblemDetail)
+GET {{baseUrl}}/price/999999999
+
+### Replace adjustments for a product
+POST {{baseUrl}}/admin/price/1/adjustments
+Content-Type: application/json
+
+[
+  { "type": "ABSOLUTE", "mode": "ADD", "amount": 1.25 },
+  { "type": "PERCENT", "mode": "ADD", "amount": 10 }
+]
+
+### Seed dataset (override defaults)
+POST {{baseUrl}}/admin/seed?count=100000&adjustRate=0.1&clear=true
+
+### Clear all data
+POST {{baseUrl}}/admin/clear

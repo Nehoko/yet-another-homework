@@ -38,6 +38,14 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <!-- Align Testcontainers modules via BOM; 1.20.x is compatible with Spring Boot 3.5.x -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>1.20.4</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
     <dependencies>
@@ -114,6 +122,22 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- For Redis we will use GenericContainer; no separate module dependency required -->
         <!-- Resilience4j for Circuit Breaker (Spring Boot 3 integration) -->
         <dependency>
             <groupId>io.github.resilience4j</groupId>
